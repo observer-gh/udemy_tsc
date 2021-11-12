@@ -1,15 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-    <script src="dist/app.js" defer></script>
-    <script src="analytics.js" defer></script>
+    <head>
+        <meta charset="UTF-8"/>
+        <!-- what does this do? -->
+        <meta name="viewport" content="width=device-width, initial-scale = 1.0" />
+        <!-- ?what does this do? -->
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>ProjectManager</title>
+        <!-- links css -->
+        <link rel="stylesheet" href="app.css">
+        <!-- links js.
+        ?what does defer do ? -->
+        <script src="dist/app.js" defer></script>
+    </head>
+    <body>
+        <!-- not loaded immediately, but loaded w/ script files.
+        so that is why it doesn't show up now! at browser! -->
+        <template id="project-input">
+            <!-- 1 from, 3 divs -->
+            <form >
+                <!-- input box -->
+                <div class="form-control">
+                    <label for="title">Title</label>
+                    <input type="text" id="title" />
+                </div>
+                <!-- ?text area -->
+                <div class="form-control">
+                    <label for="description">Description</label>
+                    <textarea name="" id="description" cols="" rows="3"></textarea>
+                </div>
+                <!-- ? number of users? -->
+                <div class="form-control">
+                    <label for="people">People</label>
+                    <input type="number" name="" id="people" step="1" min="0" max="10" />
+                </div>
+                <!-- submit button -->
+                <button type="submit">ADD PROJECT</button>
+            </form>
+        </template>
+        <!-- what is this for? -->
+        <template id="single-project">
+            <li></li>
+        </template>
+        <!-- hmm...  -->
+        <template id="project-list">
+            <section class="projects">
+                <header>
+                    <h2>
 
-</head>
-<body>
-    
-</body>
+                    </h2>
+                </header>
+                <ul></ul>
+            </section>
+        </template>
+        <!-- later load everything in this div -->
+        <div id="app"></div>
+    </body>
 </html>

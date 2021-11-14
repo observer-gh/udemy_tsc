@@ -1,3 +1,22 @@
+/* === Drag n Drop Interface Start */
+/* DragEvent if built in object type from.. where I dont remember */
+/* for draggable objects. 
+to know to and fro */
+interface Draggable {
+    dragStartHandler(event: DragEvent): void;
+    dragEndHandler(event: DragEvent): void;
+  }
+/* for objects where the draggable can be 
+put into,
+and dragged from
+note dropHandler */  
+interface DragTarget {
+dragOverHandler(event: DragEvent): void;
+dropHandler(event: DragEvent): void;
+dragLeaveHandler(event: DragEvent): void;
+}
+/* === Drag n Drop Interface end */
+
 /* ===Project Type Start */
 /* this replaces the literal type */
 enum ProjectStatus {
@@ -5,6 +24,7 @@ enum ProjectStatus {
     Finished
   }
   
+  /* ? why not just use interface? */
   class Project {
     constructor(
       public id: string,
@@ -17,19 +37,31 @@ enum ProjectStatus {
 /* ===ProjectType end */
 
 
-/* ===ProjectState start */
+
 /* singleton class/ has a list of all the projects,
 whether active or finished */
-type Listener = (items: Project[]) => void;
+type Listener<T> = (items: T[]) => void;
 
+/* ===State base class start */
+class State<T> {
+    protected listeners: Listener<T>[] = [];
 
-class ProjectState {
-    private listeners: Listener[] = [];
+    addListener(listenerFn: Listener<T>){
+        this.listeners.push(listenerFn);
+    }
+}
+/* ===State base class end */
+
+/* ===ProjectState start */
+class ProjectState extends State<Project> {
+    protected listeners: Listener<Project>[] = [];
     private projects: Project[] = [];
     /* singleton >>> */
     private static instance: ProjectState;
   
-    private constructor() {}
+    private constructor() {
+        super();
+    }
   
     static getInstance() {
       if (this.instance) {
@@ -40,8 +72,16 @@ class ProjectState {
     }
     /* <<<singleton */
   
-    addListener(listenerFn: Listener) {
+    addListener(listenerFn: Listener<Project> ){
       this.listeners.push(listenerFn);
+    }
+    
+    private updateListener(){
+        
+      for (const listenerFn of this.listeners) {
+          /* slice()  w/ no param will return a COPY of array */
+        listenerFn(this.projects.slice());
+      }
     }
   
     addProject(title: string, description: string, numOfPeople: number) {
@@ -52,11 +92,21 @@ class ProjectState {
             numOfPeople,
             ProjectStatus.Active
           );
-      this.projects.push(newProject);
-      for (const listenerFn of this.listeners) {
-          /* slice()  w/ no param will return a COPY of array */
-        listenerFn(this.projects.slice());
-      }
+        this.projects.push(newProject);
+        this.updateListener();
+    
+    }
+    /* change status of project when it moves between the two lists
+    , or with the same box */
+    moveProject(projectID: String, newStatus: ProjectStatus){
+        /* find target projectItem from the entire list of projects */
+        const project = this.projects.find(prj => prj.id === projectID);
+        
+        if(project
+            && project.status !== newStatus){
+            project.status = newStatus;
+            this.updateListener();
+        }
     }
   }
   
@@ -187,8 +237,77 @@ abstract class Component<T extends HTMLElement, U extends HTMLElement> {
   }
 /* ===Component base end */
 
+/* ===ProjectItem Class Start */
+class ProjectItem extends Component<HTMLUListElement, HTMLElement> implements Draggable{
+    private project: Project;
+
+    /* 
+    used for displaying content on html w/
+    either people or person... not much functionality
+    getter ... can be improved by me
+    but trivial i think. */
+    get persons() {
+        if (this.project.people === 1) {
+          return '1 person';
+        } else {
+          return `${this.project.people} persons`;
+        }
+      }
+
+
+    constructor(
+        hostID: string,
+        project: Project
+    ){
+        super(
+            "single-project",
+            hostID,
+            false,/* why false? => adding to end of list*/
+            project.id
+        );
+        this.project = project;
+
+        this.configure();
+        this.renderContent();
+    }
+    /* methods from Draggable interface */
+    @autobind
+    dragStartHandler(event:DragEvent){
+        /* dataTransfer is part of DragEvent type obj
+        we set its data using another builtin function */
+        event.dataTransfer!.setData("text/plain", this.project.id);
+        /* set what kind of actions are allowed with this DragEvent */
+        event.dataTransfer!.effectAllowed = "move";
+    }
+    dragEndHandler(_:DragEvent){
+        console.log("DrageEnd");
+    }
+    /* MEthods from Componenet base class */
+    /*  adds event listender, which is a builtin for HTMLElements type,
+    for drag and drop */
+    configure(){
+        this.element.addEventListener(
+            "dragstart", this.dragStartHandler
+        );
+        this.element.addEventListener(
+            "dragend", this.dragEndHandler
+        );
+    }
+    /* render content by adding them to HTMLElems */
+    renderContent(){
+        this.element.querySelector(
+            "h2")!.textContent= this.project.title;
+        this.element.querySelector(
+        "h3")!.textContent = this.persons+` assigned`;
+        this.element.querySelector(
+            "p")!.textContent = this.project.description;
+    }
+}
+/* ===ProjectItem Class end */
+
+
 /* ===ProjectList Class Start */
-class ProjectList extends Component <HTMLDivElement, HTMLElement> {
+class ProjectList extends Component <HTMLDivElement, HTMLElement> implements DragTarget{
     assignedProjects: Project[];
     /* extending a class, so most actions are done their.
     we just pass some params here to super() */
@@ -199,19 +318,49 @@ class ProjectList extends Component <HTMLDivElement, HTMLElement> {
             false, // where to attach
             `${type}-projects` // if new elem, its id
             );
-        /* template */
-        this.templateElement = document.getElementById(
-            "project-list")! as HTMLTemplateElement;
         this.assignedProjects = [];
+
         /* now render elem 
         attach is called at super()'s constructor*/
         this.configure()
         this.renderContent();
         
+    } 
+    /* DragTarget Handlers */
+    @autobind
+    dragOverHandler(event:DragEvent) {
+        if (event.dataTransfer
+            /* [0] has the types i guess..? dont know the internals of it */
+            && event.dataTransfer.types[0] === "text/plain"){
+            /* default js dont allow dropping, so call this before allowing it */
+            event.preventDefault();
+
+            const listEl = this.element.querySelector("ul")!;
+            listEl.classList.add("droppable");
+        }
+        
     }
+    @autobind
+    dropHandler(event:DragEvent) {
+        const prjId = event.dataTransfer!.getData("text/plain");
+        projectState.moveProject(prjId, 
+            this.type === "active" ? ProjectStatus.Active : ProjectStatus.Finished);
+    }
+
+    @autobind
+    dragLeaveHandler(event:DragEvent) {
+        const listEl = this.element.querySelector("ul")!;
+        listEl.classList.remove("droppable");
+    }
+
     /* in case of event, 
     configures projects to appropriate ul */
     configure(){
+        /* drag drop listener add */
+        this.element.addEventListener('dragover', this.dragOverHandler);
+        this.element.addEventListener('dragleave', this.dragLeaveHandler);
+        this.element.addEventListener('drop', this.dropHandler);
+        /* listen for state changes */
         projectState.addListener((projects:Project[]) => {
                 const relevantProjects = projects.filter(prj => {
                         if (this.type === "active"){
@@ -249,9 +398,10 @@ class ProjectList extends Component <HTMLDivElement, HTMLElement> {
         add textcontent,
         and add to <ul/> */
         for (const prjItem of this.assignedProjects) {
-          const listItem = document.createElement('li');
-          listItem.textContent = prjItem.title;
-          listEl.appendChild(listItem);
+          
+            const item = new ProjectItem(this.element.querySelector("ul")!.id, prjItem);
+
+
         }
       }
 
@@ -371,4 +521,10 @@ class ProjectInput extends Component<HTMLDivElement, HTMLFormElement>{
 const prjInput = new ProjectInput();
 const activePrjList = new ProjectList("active");
 const finishedPrjList = new ProjectList("finished");
+
+/* ??how to add testing project by default? */
+for (let i=0; i <5; i++){
+    projectState.addProject("testing","testing descirption", i);
+}
+
 
